@@ -1,0 +1,76 @@
+name: Back End Deployment
+
+on:
+    push:
+        branches:
+            - main
+
+env:
+  BUILD_NUMBER: ${{ github.run_number }}
+  IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/front-session14
+  PROJECT_PATH: /home/user/devops-script/frontend/dev # Docker compose file
+  DOCKER_SERVICE: front-app
+
+jobs:
+    # Unit Test
+    Unit_Test:
+        runs-on: ubuntu-latest
+        steps:
+            - name: checkout code
+              uses: actions/checkout@v5
+
+            - name: Install Dependencies
+              run: npm i
+
+            - name: Run Unit Test
+              run: npm run test
+
+    Build_And_Push:
+        runs-on: ubuntu-latest
+        needs: Unit_Test
+        steps:
+            # - checkout / clone
+            - name: checkout code
+              uses: actions/checkout@v5
+
+            # - build image
+            - name: Build Docker Image
+              run: docker build -t ${{ env.IMAGE_NAME }} .
+
+            # - Tag docker Image
+            - name: Tag Docker Image with version
+              run: docker tag ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:v${{ env.BUILD_NUMBER }}
+
+            # - docker login
+            - name: Login to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                username: ${{ vars.DOCKERHUB_USERNAME }}
+                password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - name: List Images 
+              run: docker images
+
+            # - docker push latest image
+            - name: Push Docker image
+              run: docker push ${{ env.IMAGE_NAME }}
+
+            # - docker push version image
+            - name: push version image
+              run: docker push ${{ env.IMAGE_NAME }}:v${{ env.BUILD_NUMBER }}
+            
+    Deployment:
+        runs-on: ubuntu-latest
+        needs: Build_And_Push
+        steps:
+            - name: SSH Connect And Deploy
+              uses: appleboy/ssh-action@v1
+              with:
+                host: ${{ secrets.VPS_HOST }}
+                username: ${{ secrets.VPS_USERNAME }}
+                password: ${{ secrets.VPS_PASSWORD }}
+                script: |
+                    cd ${{ env.PROJECT_PATH }}
+                    sudo docker compose pull ${{ env.DOCKER_SERVICE }}
+                    sudo docker compose down ${{ env.DOCKER_SERVICE }}
+                    sudo docker compose up -d 
