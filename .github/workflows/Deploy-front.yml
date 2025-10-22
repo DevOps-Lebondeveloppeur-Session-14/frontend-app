@@ -10,6 +10,7 @@ env:
   IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/front-session14
   PROJECT_PATH: /home/user/devops-script/frontend/dev # Docker compose file
   DOCKER_SERVICE: front-app
+  BUILD_ARGS: --build-arg VITE_API_URL=https://app.session14.lebondeveloppeur.net 
 
 jobs:
     # Unit Test
@@ -35,7 +36,7 @@ jobs:
 
             # - build image
             - name: Build Docker Image
-              run: docker build -t ${{ env.IMAGE_NAME }} .
+              run: docker build -t ${{ env.IMAGE_NAME }} ${{ env.BUILD_ARGS }} .
 
             # - Tag docker Image
             - name: Tag Docker Image with version
